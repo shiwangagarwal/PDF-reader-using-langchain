@@ -18,15 +18,34 @@ except ImportError:
     from langchain.chains.combine_documents import create_stuff_documents_chain
 
 from scripts.document_loader import load_document
-from scripts.secret import GROQ_KEY
+
+
+def get_secret(name):
+    """
+    Read a key from scripts/secret.py (local) or from Streamlit secrets (Streamlit Cloud).
+    """
+    try:
+        from scripts import secret
+        value = getattr(secret, name, None)
+        if value:
+            return value
+    except ImportError:
+        pass
+    try:
+        return st.secrets.get(name)
+    except Exception:
+        return os.environ.get(name)
+
+
+GROQ_KEY = get_secret("GROQ_KEY")
+if not GROQ_KEY:
+    st.error("GROQ_KEY is missing. Add it to scripts/secret.py (local) or to the app's Secrets (Streamlit Cloud).")
+    st.stop()
 
 # Use a HuggingFace token (if set) so the embedding model download isn't rate-limited (HTTP 429)
-try:
-    from scripts.secret import HF_TOKEN
-    if HF_TOKEN and not HF_TOKEN.startswith("hf_your"):
-        os.environ["HF_TOKEN"] = HF_TOKEN
-except ImportError:
-    pass
+HF_TOKEN = get_secret("HF_TOKEN")
+if HF_TOKEN and not HF_TOKEN.startswith("hf_your"):
+    os.environ["HF_TOKEN"] = HF_TOKEN
 
 # Settings
 LLM_MODEL = "openai/gpt-oss-120b"   # switch to "openai/gpt-oss-20b" if you hit rate limits
